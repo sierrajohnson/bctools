@@ -22,6 +22,8 @@ This method is recommended if you have project files only shared with certain pe
 File path:  C:/Users/yourname/ProjectWise/Brown & Caldwell
 \item "MyOneDrive" : Files in your personal OneDrive documents.
 File path: C:/Users/yourname/OneDrive - Brown and Caldwell/Documents/
+\item "Egnyte" : Folders in the Egnyte desktop app. App must be installed on computer for the function to work.
+File path: Y:/Shared/Clients
 }}
 }
 \description{
@@ -31,5 +33,6 @@ and OneDrive when you have connected projects to your local system.
 \examples{
 bc_drive("Reuse Pilot/Data", "Personal One Drive")
 bc_drive("000000 - Project Name/001 Task Name/01 Subfolder", "projectwise")
+bc_drive("Golden_City of-CO/153349 - Golden WTP Facility Plan/", drive = "Egnyte")
 
 }

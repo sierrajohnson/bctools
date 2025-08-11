@@ -17,10 +17,14 @@
 #'     File path:  C:/Users/yourname/ProjectWise/Brown & Caldwell
 #'   * "MyOneDrive" : Files in your personal OneDrive documents.
 #'     File path: C:/Users/yourname/OneDrive - Brown and Caldwell/Documents/
+#'   * "Egnyte" : Folders in the Egnyte desktop app. App must be installed on computer for the function to work.
+#'     File path: Y:/Shared/Clients
+#'
 #' @param projectfolder Specify the rest of the file path in quotes
 #'
 #' @examples bc_drive("Reuse Pilot/Data", "Personal One Drive")
 #' bc_drive("000000 - Project Name/001 Task Name/01 Subfolder", "projectwise")
+#' bc_drive("Golden_City of-CO/153349 - Golden WTP Facility Plan/", drive = "Egnyte")
 #'
 #' @export
 #'
@@ -43,8 +47,12 @@ bc_drive <- function(projectfolder, drive = "CodeReview") {
     DrivePath <- "/OneDrive - Brown and Caldwell/Documents/"
     DrivePath2 <- DrivePath
     DrivePath3 <- DrivePath
+  } else if (grepl("egnyte", drive, ignore.case = TRUE)) {
+    DrivePath <- "Y:/Shared/Clients/"
+    DrivePath2 <- DrivePath
+    DrivePath3 <- DrivePath
   } else {
-    stop("Specified drive does not match current options. Use 'CodeReview', 'OneDrive', 'ProjectWise' or 'MyOneDrive'")
+    stop("Specified drive does not match current options. Use 'CodeReview', 'OneDrive', 'ProjectWise', 'MyOneDrive', or 'Egnyte'")
   }
 
   dir1 <- paste0("C:/Users/", UserID, DrivePath)
@@ -57,8 +65,10 @@ bc_drive <- function(projectfolder, drive = "CodeReview") {
     dir <- dir2
   } else if(dir.exists(dir3)) {
     dir <- dir3
+  } else if(dir.exists(DrivePath)) {
+    dir <- DrivePath
   } else {
-    stop("No folders found in expected file PW or OneDrive paths. Contact Sierra or Libby to update this function with your file path.")
+    stop("No folders found in expected file PW, OneDrive, or Egnyte paths. Contact Sierra or Libby to update this function with your file path.")
   }
 
   dir0 <- paste0(dir, projectfolder)
@@ -76,9 +86,74 @@ bc_drive <- function(projectfolder, drive = "CodeReview") {
     setwd(dir3)
   } else {
     setwd(dir)
-    warning("Project Folder not found. Working drive was set to main PW or OneDrive folder specified.")
+    warning("Project Folder not found. Working drive was set to main PW, OneDrive, or Egnyte folder specified.")
   }
 
 }
 
+########################################################################################################################*
+########################################################################################################################*
+########################################################################################################################*
+# FACTOR WQ ----
+#' Factor water quality data to produce a standard table
+#'
+#' @param data Data frame containing the column of water quality data to be factored
+#' @param parameter_column Name of column with water quality parameter names.
+#'
+#' @examples
+#' water <- water_df %>%
+#'   pivot_longer(everything(), names_to = "param", values_to = "result") %>%
+#'   factor_wq(param)
+#'
+#'
+#' @export
+#'
+factor_wq <- function(data, parameter_column, ...) {
 
+  levels_order <- c("pH", "Alkalinity", "Temperature", "DOC", "TOC", "UVA", "SUVA", "Fluoride",
+                    "Calcium Hardness", "Magnesium Hardness", "Total Hardness", "Sodium", "Potassium",
+                    "Iron (dissolved)", "Iron (total)", "Manganese (dissolved)", "Manganese (total)",
+                    "Chloride", "Sulfate", "Nitrate", "Bromide", "Total Dissolved Solids",  "Conductivity", "Turbidity"
+                    )
+
+  # Aliases for each factor level
+  parameter_map <- c(
+
+    "ph" = "pH",
+    "alkalinity" = "Alkalinity", "alk" = "Alkalinity",
+    "temperature" = "Temperature", "temp" = "Temperature",
+    "doc" = "DOC", "dissolved organic carbon" = "DOC",
+    "toc" = "TOC", "total organic carbon" = "TOC",
+    "uv" = "UVA", "uv254" = "UVA", "uva" = "UVA", "uv absorbance" = "UVA",
+    "suva" = "SUVA", "specific uv absorbance" = "SUVA", "specific uva" = "SUVA",
+    "fluoride" = "Fluoride", "fluor" = "Fluoride",
+
+    "calcium" = "Calcium Hardness", "calcium hardness"= "Calcium Hardness", "ca_hard" = "Calcium Hardness",
+    "magnesium" = "Magnesium Hardness", "magnesium hardness"= "Magnesium Hardness", "mg_hard" = "Calcium Hardness",
+    "total hardness" = "Total Hardness", "tot_hard" = "Total Hardness", "hardness" = "Total Hardness", "total hard" = "Total Hardness",
+    "sodium" = "Sodium", "na" = "Sodium",
+    "k" = "Potassium", "potassium" = "Potassium",
+    "iron (dissolved)" = "Iron (dissolved)", "iron-dissolved" = "Iron (dissolved)",
+    "iron (total)" =  "iron (total)", "iron-total" =  "Iron (total)",
+    "manganese (dissolved)" = "Manganese (dissolved)", "manganese-dissolved" = "Manganese (dissolved)",
+    "manganese (total)" = "Manganese (total)",  "manganese-total"  = "Manganese (total)",
+
+    "chloride" = "Chloride", "cl" = "Chloride",
+    "so4" = "Sulfate", "sulfate" = "Sulfate",
+    "nitrate" = "Nitrate", "no3" = "Nitrate",
+    "br" = "Bromide", "bromide" = "Bromide",
+    "total dissolved solids" = "Total Dissolved Solids", "tds" = "Total Dissolved Solids",
+    "cond" = "Conductivity", "conductivity" = "Conductivity",
+    "turbidity" = "Turbidity", "turb" = "Turbidity"
+
+    )
+
+  # Apply the mapping to the parameter column
+  data2 <- data %>%
+    mutate({{parameter_column}} := tolower({{parameter_column}}),
+      {{parameter_column}} := factor(parameter_map[{{parameter_column}}],
+                                            levels = levels_order)) %>%
+    arrange({{parameter_column}})
+
+  return(data2)
+}

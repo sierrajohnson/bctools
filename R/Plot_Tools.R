@@ -133,7 +133,7 @@ bc_pal <- function(palette = "primary", reverse = FALSE, ...) {
 
 ########################################################################################################################*
 # GGPLOT COLOR FUNCTIONS ----
-#' BC Color Palette with scale_color
+#' @title BC Color Palette with scale_color
 #'
 #' @param palette Name of color palette to use. Current options: "primary", "rainbow"
 #' @param discrete Set equal to false if gradient is desired
@@ -144,14 +144,67 @@ bc_pal <- function(palette = "primary", reverse = FALSE, ...) {
 scale_color_bc <- function(palette = "primary", discrete = TRUE, reverse = FALSE, ...) {
   pal <- bc_pal(palette = palette, reverse = reverse)
   if (discrete) {
-    # the paste0 arguement is for error messages
+    # the paste0 argument is for error messages
     discrete_scale("colour", paste0("bc_", palette), palette = pal, ...)
   } else {
     scale_color_gradientn(colours = pal(256), ...)
   }
 }
 
-########################################################################################################################*
+# GGPLOT CORROSION FUNCTIONS ----
+#' @title Corrosion Index Ranges
+#' @description
+#' Automatically add typical corrosion ranges to plots. Note: MUST use data argument, MUST use index_column argument. See example.
+#' Ranges are based on this corrosion write up, already QC'd by Damon Roth (access to doc for BC employees only)
+#' https://brwncald-my.sharepoint.com/:w:/p/lmckenna/Ebhc5hMxdZpHq5aKyoaGijQBheBR0EYLVtEEMJFaXpnARw?e=kRv8dX
+#' @param data Data frame containing a column of named corrosion/scaling indices
+#' @param alpha Set the opacity of the rectangles, default is 0.3
+#' @param fill Set the color of the rectangles, default is "cyan"
+#' @param index_column Name of the column in the plot data frame with corrosion/scaling indices names (should be the column used for facetting)
+#'
+#' @examples
+#' library(tidywater)
+#' corr_plot <- water_df %>%
+#'   define_water_chain() %>%
+#'   calculate_corrosion_once() %>%
+#'   pivot_longer(aggressive:csmr, names_to = "index", values_to = "result")
+#'
+#' ggplot(corr_plot, aes(x = ph, y = result)) +
+#'   geom_point() +
+#'   facet_wrap(~index) +
+#'   geom_corrosion_ranges(data = corr_plot, index_column = "index")
+#'
+#' @export
+#'
+geom_corrosion_ranges <- function(data,
+                              alpha = 0.3,
+                              fill = "cyan",
+                              xmin = -Inf,
+                              xmax = Inf,
+                              index_column, ...) {
+
+  plot_data <- data %>%
+    select(!!sym(index_column)) %>%
+    unique() %>% # this makes sure there is only one rectangle per index. Otherwise multiple rectangles are drawn and alpha doesn't work well
+    mutate( ymin= case_when( grepl("lange|Lange|LSI", !!sym(index_column)) ~ -0.5,
+                             grepl("ryz|Ryz|RI",  !!sym(index_column)) ~ 6,
+                             grepl("ccpp|CCPP|Calcium C",  !!sym(index_column)) ~ 4,
+                             grepl("larso|Lars|LI",  !!sym(index_column)) ~ -Inf,
+                             grepl("csmr|CSMR|Chloride",  !!sym(index_column)) ~ -Inf,
+                             grepl("agg|Agg|AI",  !!sym(index_column)) ~ 12),
+            ymax =case_when( grepl("lange|Lange|LSI",  !!sym(index_column)) ~ 0.5,
+                             grepl("ryz|Ryz|RI",  !!sym(index_column)) ~ 7,
+                             grepl("ccpp|CCPP|Calcium C",  !!sym(index_column)) ~ 10,
+                             grepl("larso|Lars|LI",  !!sym(index_column)) ~ 5,
+                             grepl("csmr|CSMR|Chloride",  !!sym(index_column)) ~ 0.6,
+                             grepl("agg|Agg|AI",  !!sym(index_column)) ~ Inf))
+
+return(geom_rect(data = plot_data, aes(ymin = ymin, ymax = ymax),
+                 xmin = xmin, xmax = xmax, alpha = alpha, fill = fill, inherit.aes = FALSE))
+
+}
+
+#######################################################################################################################*
 #' BC Color Palette with scale_fill
 #'
 #' @param palette Name of color palette to use. Current options: "primary", "rainbow"

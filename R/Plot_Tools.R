@@ -174,6 +174,290 @@ scale_fill_bc <- function(palette = "primary", discrete = TRUE, reverse = FALSE,
 ########################################################################################################################*
 ########################################################################################################################*
 
+# TO DO: Underlying Geom ----
+
+data_frame0 <- function(...) data_frame(..., .name_repair = "minimal")
+
+#' @format NULL
+#' @usage NULL
+#' @export
+GeomBoxplotq <- ggproto(
+  "GeomBoxplotq", GeomBoxplot,
+
+  draw_group = function(self, data, panel_params, coord, lineend = "butt",
+                        linejoin = "mitre", fatten = 2, outlier_gp = NULL,
+                        whisker_gp = NULL, staple_gp = NULL, median_gp = NULL,
+                        box_gp = NULL, notch = FALSE, notchwidth = 0.5,
+                        staplewidth = 0, varwidth = FALSE, flipped_aes = FALSE,
+                        middlepoint = "mean", count = TRUE, countlabel = FALSE
+                        ) {
+    # data <- fix_linewidth(data, snake_class(self))
+    data <- flip_data(data, flipped_aes)
+    # this may occur when using geom_boxplot(stat = "identity")
+    if (nrow(data) != 1) {
+      cli::cli_abort(c(
+        "Can only draw one boxplot per group.",
+        "i"= "Did you forget {.code aes(group = ...)}?"
+      ))
+    }
+
+    common <- list(fill = fill_alpha(data$fill, data$alpha), group = data$group)
+
+    whiskers <- data_frame0(
+      x = c(data$x, data$x),
+      xend = c(data$x, data$x),
+      y = c(data$upper, data$lower),
+      yend = c(data$ymax, data$ymin),
+      colour    = rep(whisker_gp$colour    %||% data$colour,    2),
+      linetype  = rep(whisker_gp$linetype  %||% data$linetype,  2),
+      linewidth = rep(whisker_gp$linewidth %||% data$linewidth, 2),
+      alpha = c(NA_real_, NA_real_),
+      !!!common,
+      .size = 2
+    )
+    whiskers <- flip_data(whiskers, flipped_aes)
+
+    box <- transform(
+      data,
+      y = middle,
+      ymax = upper,
+      ymin = lower,
+      ynotchlower = ifelse(notch, notchlower, NA),
+      ynotchupper = ifelse(notch, notchupper, NA),
+      notchwidth = notchwidth
+    )
+    box <- flip_data(box, flipped_aes)
+
+    if (!is.null(data$outliers) && length(data$outliers[[1]]) >= 1) {
+      outliers <- data_frame0(
+        y = data$outliers[[1]],
+        x = data$x[1],
+        colour = outlier_gp$colour %||% data$colour[1],
+        fill   = outlier_gp$fill   %||% data$fill[1],
+        shape  = outlier_gp$shape  %||% data$shape[1]  %||% 19,
+        size   = outlier_gp$size   %||% data$size[1]   %||% 1.5,
+        stroke = outlier_gp$stroke %||% data$stroke[1] %||% 0.5,
+        fill = NA,
+        alpha = outlier_gp$alpha %||% data$alpha[1],
+        .size = length(data$outliers[[1]])
+      )
+      outliers <- flip_data(outliers, flipped_aes)
+
+      outliers_grob <- GeomPoint$draw_panel(outliers, panel_params, coord)
+    } else {
+      outliers_grob <- NULL
+    }
+
+    if (staplewidth != 0) {
+      staples <- data_frame0(
+        x    = rep((data$xmin - data$x) * staplewidth + data$x, 2),
+        xend = rep((data$xmax - data$x) * staplewidth + data$x, 2),
+        y    = c(data$ymax, data$ymin),
+        yend = c(data$ymax, data$ymin),
+        linetype  = rep(staple_gp$linetype  %||% data$linetype, 2),
+        linewidth = rep(staple_gp$linewidth %||% data$linewidth, 2),
+        colour    = rep(staple_gp$colour    %||% data$colour, 2),
+        alpha = c(NA_real_, NA_real_),
+        !!!common,
+        .size = 2
+      )
+      staples <- flip_data(staples, flipped_aes)
+      staple_grob <- GeomSegment$draw_panel(
+        staples, panel_params, coord,
+        lineend = lineend
+      )
+    } else {
+      staple_grob <- NULL
+    }
+
+    # if (count){
+    #   count <- data_frame0(
+    #     x = data$x,
+    #     y = ifelse(outliers, data$min, data$ymin),
+    #     label = ifelse(countlab, paste0("n=", data$count), paste0(data$count))
+    #   )
+    #   count <- flip_data(count, flipped_aes)
+    #   count_grob <- GeomText$draw_panel(
+    #     count, panel_params, coord
+    #   )
+    #
+    # } else {
+    #   count_grob <- NULL
+    # }
+
+
+    ggname("geom_boxplotq", grobTree(
+      outliers_grob,
+      staple_grob,
+      GeomSegment$draw_panel(whiskers, panel_params, coord, lineend = lineend),
+      GeomCrossbar$draw_panel(
+        box,
+        fatten = fatten,
+        panel_params,
+        coord,
+        lineend = lineend,
+        linejoin = linejoin,
+        flipped_aes = flipped_aes,
+        middle_gp = median_gp,
+        box_gp = box_gp
+      )
+    ))
+  }
+)
+
+# Underlying Stat ----
+
+#' @format NULL
+#' @usage NULL
+#' @export
+StatBoxplotq <- ggproto(
+  "StatBoxplotq", StatBoxplot,
+
+  compute_group = function(data, scales, width = NULL, na.rm = FALSE, coef = 1.5,
+                           flipped_aes = FALSE, qs = c(.05,.25,.50,.75,.95)) {
+    data <- flip_data(data, flipped_aes)
+
+    if (!is.null(data$weight)) {
+      mod <- quantreg::rq(y ~ 1, weights = weight, data = data, tau = qs)
+      stats <- as.numeric(stats::coef(mod))
+    } else {
+      stats <- as.numeric(stats::quantile(data$y, qs))
+    }
+    names(stats) <- c("ymin", "lower", "middle", "upper", "ymax")
+    iqr <- diff(stats[c(2, 4)])
+
+    outliers <- data$y < stats[1] | data$y > stats[5]
+
+    if (vctrs::vec_unique_count(data$x) > 1)
+      width <- diff(range(data$x)) * 0.9
+
+    df <- data_frame0(!!!as.list(stats))
+    df$outliers <- list(data$y[outliers])
+    df$count <- length(data$y)
+    df$mean <- mean(data$y)
+    df$p90 <- as.numeric(stats::quantile(data$y, .9))
+    df$allmin <- min(data$y)
+
+    if (is.null(data$weight)) {
+      n <- sum(!is.na(data$y))
+    } else {
+      # Sum up weights for non-NA positions of y and weight
+      n <- sum(data$weight[!is.na(data$y) & !is.na(data$weight)])
+    }
+
+    df$notchupper <- df$middle + 1.58 * iqr / sqrt(n)
+    df$notchlower <- df$middle - 1.58 * iqr / sqrt(n)
+
+    df$x <- if (is.factor(data$x)) data$x[1] else mean(range(data$x))
+    df$width <- width
+    df$relvarwidth <- sqrt(n)
+    df$flipped_aes <- flipped_aes
+    flip_data(df, flipped_aes)
+  }
+)
+
+#' A box and whiskers quantile plot
+#'
+#' The boxplot compactly displays the distribution of a continuous variable.
+#' It visualises five summary statistics (the median, two hinges
+#' and two whiskers), and all "outlying" points individually.
+#'
+#'
+#' @section Summary statistics:
+#' The lower and upper hinges correspond to the first and third quartiles
+#' (the 25th and 75th percentiles). Whiskers extend to the specified quantiles, unlike `ggplot2::geom_boxplot`, which
+#' calculates outliers.
+#'
+#' In a notched box plot, the notches extend `1.58 * IQR / sqrt(n)`.
+#' This gives a roughly 95% confidence interval for comparing medians.
+#' See McGill et al. (1978) for more details.
+#'
+#'
+#' @param geom,stat Use to override the default connection between
+#'   `geom_boxplot()` and `stat_boxplot()`. For more information about
+#'   overriding these connections, see how the [stat][layer_stats] and
+#'   [geom][layer_geoms] arguments work.
+#' @param outliers Whether to display (`TRUE`) or discard (`FALSE`) outliers
+#'   from the plot. Hiding or discarding outliers can be useful when, for
+#'   example, raw data points need to be displayed on top of the boxplot.
+#'   By discarding outliers, the axis limits will adapt to the box and whiskers
+#'   only, not the full data range. If outliers need to be hidden and the axes
+#'   needs to show the full data range, please use `outlier.shape = NA` instead.
+#' @param outlier.colour,outlier.color,outlier.fill,outlier.shape,outlier.size,outlier.stroke,outlier.alpha
+#'   Default aesthetics for outliers. Set to `NULL` to inherit from the
+#'   data's aesthetics.
+#' @param whisker.colour,whisker.color,whisker.linetype,whisker.linewidth
+#'   Default aesthetics for the whiskers. Set to `NULL` to inherit from the
+#'   data's aesthetics.
+#' @param median.colour,median.color,median.linetype,median.linewidth
+#'   Default aesthetics for the median line. Set to `NULL` to inherit from the
+#'   data's aesthetics.
+#' @param staple.colour,staple.color,staple.linetype,staple.linewidth
+#'   Default aesthetics for the staples. Set to `NULL` to inherit from the
+#'   data's aesthetics. Note that staples don't appear unless the `staplewidth`
+#'   argument is set to a non-zero size.
+#' @param box.colour,box.color,box.linetype,box.linewidth
+#'   Default aesthetics for the boxes. Set to `NULL` to inherit from the
+#'   data's aesthetics.
+#' @param notch If `FALSE` (default) make a standard box plot. If
+#'   `TRUE`, make a notched box plot. Notches are used to compare groups;
+#'   if the notches of two boxes do not overlap, this suggests that the medians
+#'   are significantly different.
+#' @param notchwidth For a notched box plot, width of the notch relative to
+#'   the body (defaults to `notchwidth = 0.5`).
+#' @param staplewidth The relative width of staples to the width of the box.
+#'   Staples mark the ends of the whiskers with a line.
+#' @param varwidth If `FALSE` (default) make a standard box plot. If
+#'   `TRUE`, boxes are drawn with widths proportional to the
+#'   square-roots of the number of observations in the groups (possibly
+#'   weighted, using the `weight` aesthetic).
+#'
+#' @export
+#'
+#' @import ggplot2
+geom_boxplot_q <- function (mapping = NULL, data = NULL, stat = "boxplotq", position = "dodge2",
+                            quantiles = c(.05,.25,.5,.75,.95), count = TRUE,
+                            middlepoint = "mean", whiskerbar = FALSE,
+                                 ..., outliers = TRUE, outlier.colour = NULL, outlier.color = NULL,
+                                 outlier.fill = NULL, outlier.shape = 19, outlier.size = 1.5,
+                                 outlier.stroke = 0.5, outlier.alpha = NULL, notch = FALSE,
+                                 notchwidth = 0.5, staplewidth = 0.9, varwidth = FALSE, na.rm = FALSE,
+                                 orientation = NA, show.legend = NA, inherit.aes = TRUE)
+{
+  if (is.character(position)) {
+    if (varwidth == TRUE)
+      position <- position_dodge2(preserve = "single")
+  }
+  else {
+    if (identical(position$preserve, "total") & varwidth ==
+        TRUE) {
+      cli::cli_warn("Can't preserve total widths when {.code varwidth = TRUE}.")
+      position$preserve <- "single"
+    }
+  }
+  check_number_decimal(staplewidth)
+  check_bool(outliers)
+  layer(data = data, mapping = mapping, stat = stat, geom = GeomBoxplot,
+        position = position, show.legend = show.legend, inherit.aes = inherit.aes,
+        params = rlang::list2(outliers = outliers, outlier.colour = outlier.color %||%
+                         outlier.colour, outlier.fill = outlier.fill, outlier.shape = outlier.shape,
+                       outlier.size = outlier.size, outlier.stroke = outlier.stroke,
+                       outlier.alpha = outlier.alpha, notch = notch, notchwidth = notchwidth,
+                       staplewidth = staplewidth, varwidth = varwidth,
+                       na.rm = na.rm, orientation = orientation, ...))
+
+
+
+}
+
+# iris2 <- iris %>%
+#   mutate(binpetal = as.factor(round(Petal.Width/.5)*.5))
+# ggplot(iris2, aes(x = Species, y = Sepal.Width, fill = binpetal)) +
+#   geom_boxplot_q()
+
+
+
+
 # BOX AND WHISKER ----
 
 #' Box and Whisker Plot function that uses 25th and 75th percentile for the box and 5th and 95th percentiles for whiskers.
@@ -261,9 +545,9 @@ geom_boxandwhisker <- function (outlier = TRUE, count = TRUE, middlepoint = "mea
   list(
     # This makes the actual box and whisker
     if(!is.na(alpha))
-    ggplot2::stat_summary(fun.data = boxplot_info, geom = "boxplot",
-                          position = position_dodge2(width = width,preserve=preserve, padding = padding),
-                          alpha = alpha, width = width, ...),
+      ggplot2::stat_summary(fun.data = boxplot_info, geom = "boxplot",
+                            position = position_dodge2(width = width,preserve=preserve, padding = padding),
+                            alpha = alpha, width = width, ...),
     if(is.na(alpha))
       ggplot2::stat_summary(fun.data = boxplot_info, geom = "boxplot",
                             position = position_dodge2(width = width,preserve=preserve, padding = padding),
@@ -333,7 +617,7 @@ theme_bc <- function (base_size = 12, base_family = "", ...) {
 # iris <- iris %>%
 #   mutate(binpetal = as.factor(round(Petal.Width/.5)*.5))
 # ggplot(iris, aes(x = Species, y = Sepal.Width, fill = binpetal)) +
-#   geom_boxandwhisker() +
+#   geom_boxandwhisker(width = .5) +
 #   theme_bc() +
 #   scale_fill_bc()
 #

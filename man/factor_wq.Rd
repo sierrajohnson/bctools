@@ -19,5 +19,4 @@ water <- water_df \%>\%
   pivot_longer(everything(), names_to = "param", values_to = "result") \%>\%
   factor_wq(param)
 
-
 }

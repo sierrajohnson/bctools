@@ -59,13 +59,13 @@ bc_drive <- function(projectfolder, drive = "CodeReview") {
   dir2 <- paste0("C:/Users/", UserID, DrivePath2)
   dir3 <- paste0("C:/Users/", UserID, DrivePath3)
 
-  if(dir.exists(dir1)) {
+  if (dir.exists(dir1)) {
     dir <- dir1
-  } else if(dir.exists(dir2)) {
+  } else if (dir.exists(dir2)) {
     dir <- dir2
-  } else if(dir.exists(dir3)) {
+  } else if (dir.exists(dir3)) {
     dir <- dir3
-  } else if(dir.exists(DrivePath)) {
+  } else if (dir.exists(DrivePath)) {
     dir <- DrivePath
   } else {
     stop("No folders found in expected file PW, OneDrive, or Egnyte paths. Contact Sierra or Libby to update this function with your file path.")
@@ -76,19 +76,18 @@ bc_drive <- function(projectfolder, drive = "CodeReview") {
   dir2 <- paste0(dir2, projectfolder)
   dir3 <- paste0(dir3, projectfolder)
 
-  if(dir.exists(dir0)) {
+  if (dir.exists(dir0)) {
     setwd(dir0)
-  } else if(dir.exists(dir1)) {
+  } else if (dir.exists(dir1)) {
     setwd(dir1)
-  } else if(dir.exists(dir2)) {
+  } else if (dir.exists(dir2)) {
     setwd(dir2)
-  } else if(dir.exists(dir3)) {
+  } else if (dir.exists(dir3)) {
     setwd(dir3)
   } else {
     setwd(dir)
     warning("Project Folder not found. Working drive was set to main PW, OneDrive, or Egnyte folder specified.")
   }
-
 }
 
 ########################################################################################################################*
@@ -105,20 +104,18 @@ bc_drive <- function(projectfolder, drive = "CodeReview") {
 #'   pivot_longer(everything(), names_to = "param", values_to = "result") %>%
 #'   factor_wq(param)
 #'
-#'
 #' @export
 #'
 factor_wq <- function(data, parameter_column, ...) {
-
-  levels_order <- c("pH", "Alkalinity", "Temperature", "DOC", "TOC", "UVA", "SUVA", "Fluoride",
-                    "Calcium Hardness", "Magnesium Hardness", "Total Hardness", "Sodium", "Potassium",
-                    "Iron (dissolved)", "Iron (total)", "Manganese (dissolved)", "Manganese (total)",
-                    "Chloride", "Sulfate", "Nitrate", "Bromide", "Total Dissolved Solids",  "Conductivity", "Turbidity"
-                    )
+  levels_order <- c(
+    "pH", "Alkalinity", "Temperature", "DOC", "TOC", "UVA", "SUVA", "Fluoride",
+    "Calcium Hardness", "Magnesium Hardness", "Total Hardness", "Sodium", "Potassium",
+    "Iron (dissolved)", "Iron (total)", "Manganese (dissolved)", "Manganese (total)",
+    "Chloride", "Sulfate", "Nitrate", "Bromide", "Total Dissolved Solids", "Conductivity", "Turbidity"
+  )
 
   # Aliases for each factor level
   parameter_map <- c(
-
     "ph" = "pH",
     "alkalinity" = "Alkalinity", "alk" = "Alkalinity",
     "temperature" = "Temperature", "temp" = "Temperature",
@@ -127,17 +124,15 @@ factor_wq <- function(data, parameter_column, ...) {
     "uv" = "UVA", "uv254" = "UVA", "uva" = "UVA", "uv absorbance" = "UVA",
     "suva" = "SUVA", "specific uv absorbance" = "SUVA", "specific uva" = "SUVA",
     "fluoride" = "Fluoride", "fluor" = "Fluoride",
-
-    "calcium" = "Calcium Hardness", "calcium hardness"= "Calcium Hardness", "ca_hard" = "Calcium Hardness",
-    "magnesium" = "Magnesium Hardness", "magnesium hardness"= "Magnesium Hardness", "mg_hard" = "Calcium Hardness",
+    "calcium" = "Calcium Hardness", "calcium hardness" = "Calcium Hardness", "ca_hard" = "Calcium Hardness",
+    "magnesium" = "Magnesium Hardness", "magnesium hardness" = "Magnesium Hardness", "mg_hard" = "Calcium Hardness",
     "total hardness" = "Total Hardness", "tot_hard" = "Total Hardness", "hardness" = "Total Hardness", "total hard" = "Total Hardness",
     "sodium" = "Sodium", "na" = "Sodium",
     "k" = "Potassium", "potassium" = "Potassium",
     "iron (dissolved)" = "Iron (dissolved)", "iron-dissolved" = "Iron (dissolved)",
-    "iron (total)" =  "iron (total)", "iron-total" =  "Iron (total)",
+    "iron (total)" = "iron (total)", "iron-total" = "Iron (total)",
     "manganese (dissolved)" = "Manganese (dissolved)", "manganese-dissolved" = "Manganese (dissolved)",
-    "manganese (total)" = "Manganese (total)",  "manganese-total"  = "Manganese (total)",
-
+    "manganese (total)" = "Manganese (total)", "manganese-total" = "Manganese (total)",
     "chloride" = "Chloride", "cl" = "Chloride",
     "so4" = "Sulfate", "sulfate" = "Sulfate",
     "nitrate" = "Nitrate", "no3" = "Nitrate",
@@ -145,15 +140,17 @@ factor_wq <- function(data, parameter_column, ...) {
     "total dissolved solids" = "Total Dissolved Solids", "tds" = "Total Dissolved Solids",
     "cond" = "Conductivity", "conductivity" = "Conductivity",
     "turbidity" = "Turbidity", "turb" = "Turbidity"
-
-    )
+  )
 
   # Apply the mapping to the parameter column
   data2 <- data %>%
-    mutate({{parameter_column}} := tolower({{parameter_column}}),
-      {{parameter_column}} := factor(parameter_map[{{parameter_column}}],
-                                            levels = levels_order)) %>%
-    arrange({{parameter_column}})
+    mutate(
+      {{ parameter_column }} := tolower({{ parameter_column }}),
+      {{ parameter_column }} := factor(parameter_map[{{ parameter_column }}],
+        levels = levels_order
+      )
+    ) %>%
+    arrange({{ parameter_column }})
 
   return(data2)
 }

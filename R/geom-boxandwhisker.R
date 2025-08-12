@@ -342,7 +342,7 @@ GeomBoxandwhisker <- ggproto(
     ))
   },
   default_aes = aes(weight = 1, colour = "grey20", fill = "white", size = NULL,
-                    alpha = NA, shape = 19, linetype = "solid", linewidth = 0.5,
+                    alpha = .8, shape = 19, linetype = "solid", linewidth = 0.5,
                     family = "", fontface = "plain", lineheight = 1.0
   ),
 )

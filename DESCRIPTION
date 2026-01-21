@@ -12,6 +12,7 @@ LazyData: true
 Imports:
     rlang (>= 1.1.0),
     tidyverse,
+    ggplot2 (>= 4.0),
     grid
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
